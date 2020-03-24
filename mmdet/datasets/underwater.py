@@ -1,5 +1,8 @@
 import numpy as np
 from pycocotools.coco import COCO
+import tempfile
+import os.path as osp
+import mmcv
 
 from .custom import CustomDataset
 from .registry import DATASETS
@@ -41,6 +44,100 @@ class Underwater(CustomDataset):
             if min(img_info['width'], img_info['height']) >= min_size:
                 valid_inds.append(i)
         return valid_inds
+
+    def format_results(self, results, jsonfile_prefix=None, **kwargs):
+        """Format the results to json (standard format for COCO evaluation).
+
+        Args:
+            results (list): Testing results of the dataset.
+            jsonfile_prefix (str | None): The prefix of json files. It includes
+                the file path and the prefix of filename, e.g., "a/b/prefix".
+                If not specified, a temp file will be created. Default: None.
+
+        Returns:
+            tuple: (result_files, tmp_dir), result_files is a dict containing
+                the json filepaths, tmp_dir is the temporal directory created
+                for saving json files when jsonfile_prefix is not specified.
+        """
+        assert isinstance(results, list), 'results must be a list'
+        assert len(results) == len(self), (
+            'The length of results is not equal to the dataset len: {} != {}'.
+            format(len(results), len(self)))
+        if jsonfile_prefix is None:
+            tmp_dir = tempfile.TemporaryDirectory()
+            jsonfile_prefix = osp.join(tmp_dir.name, 'results')
+        else:
+            tmp_dir = None
+        result_files = self.results2json(results, jsonfile_prefix)
+        return result_files, tmp_dir
+
+    def results2json(self, results, outfile_prefix):
+        """Dump the detection results to a json file.
+
+        There are 3 types of results: proposals, bbox predictions, mask
+        predictions, and they have different data types. This method will
+        automatically recognize the type, and dump them to json files.
+
+        Args:
+            results (list[list | tuple | ndarray]): Testing results of the
+                dataset.
+            outfile_prefix (str): The filename prefix of the json files. If the
+                prefix is "somepath/xxx", the json files will be named
+                "somepath/xxx.bbox.json", "somepath/xxx.segm.json",
+                "somepath/xxx.proposal.json".
+
+        Returns:
+            dict[str: str]: Possible keys are "bbox", "segm", "proposal", and
+                values are corresponding filenames.
+        """
+        result_files = dict()
+        if isinstance(results[0], list):
+            json_results = self._det2json(results)
+            result_files['bbox'] = '{}.{}.json'.format(outfile_prefix, 'bbox')
+            result_files['proposal'] = '{}.{}.json'.format(
+                outfile_prefix, 'bbox')
+            mmcv.dump(json_results, result_files['bbox'])
+        elif isinstance(results[0], tuple):
+            json_results = self._segm2json(results)
+            result_files['bbox'] = '{}.{}.json'.format(outfile_prefix, 'bbox')
+            result_files['proposal'] = '{}.{}.json'.format(
+                outfile_prefix, 'bbox')
+            result_files['segm'] = '{}.{}.json'.format(outfile_prefix, 'segm')
+            mmcv.dump(json_results[0], result_files['bbox'])
+            mmcv.dump(json_results[1], result_files['segm'])
+        elif isinstance(results[0], np.ndarray):
+            json_results = self._proposal2json(results)
+            result_files['proposal'] = '{}.{}.json'.format(
+                outfile_prefix, 'proposal')
+            mmcv.dump(json_results, result_files['proposal'])
+        else:
+            raise TypeError('invalid type of results')
+        return result_files
+
+    def _det2json(self, results):
+        json_results = []
+        for idx in range(len(self)):
+            img_id = self.img_ids[idx]
+            result = results[idx]
+            for label in range(len(result)):
+                bboxes = result[label]
+                for i in range(bboxes.shape[0]):
+                    data = dict()
+                    data['image_id'] = img_id
+                    data['bbox'] = self.xyxy2xywh(bboxes[i])
+                    data['score'] = float(bboxes[i][4])
+                    data['category_id'] = self.cat_ids[label]
+                    json_results.append(data)
+        return json_results
+
+    def xyxy2xywh(self, bbox):
+        _bbox = bbox.tolist()
+        return [
+            _bbox[0],
+            _bbox[1],
+            _bbox[2] - _bbox[0] + 1,
+            _bbox[3] - _bbox[1] + 1,
+        ]
 
     def _parse_ann_info(self, img_info, ann_info):
         """Parse bbox and mask annotation.

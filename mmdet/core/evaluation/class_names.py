@@ -1,6 +1,10 @@
 import mmcv
 
 
+def underwater_classes():
+    return ['holothurian', 'echinus', 'scallop', 'starfish']
+
+
 def wider_face_classes():
     return ['face']
 
