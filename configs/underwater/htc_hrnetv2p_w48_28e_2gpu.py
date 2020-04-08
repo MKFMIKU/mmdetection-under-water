@@ -5,18 +5,35 @@ model = dict(
     num_stages=3,
     pretrained=None,
     backbone=dict(
-        type='ResNeXt',
-        depth=101,
-        groups=64,
-        base_width=4,
-        num_stages=4,
-        out_indices=(0, 1, 2, 3),
-        frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=True),
-        style='pytorch'),
+        type='HRNet',
+        extra=dict(
+            stage1=dict(
+                num_modules=1,
+                num_branches=1,
+                block='BOTTLENECK',
+                num_blocks=(4, ),
+                num_channels=(64, )),
+            stage2=dict(
+                num_modules=1,
+                num_branches=2,
+                block='BASIC',
+                num_blocks=(4, 4),
+                num_channels=(48, 96)),
+            stage3=dict(
+                num_modules=4,
+                num_branches=3,
+                block='BASIC',
+                num_blocks=(4, 4, 4),
+                num_channels=(48, 96, 192)),
+            stage4=dict(
+                num_modules=3,
+                num_branches=4,
+                block='BASIC',
+                num_blocks=(4, 4, 4, 4),
+                num_channels=(48, 96, 192, 384)))),
     neck=dict(
         type='FPN',
-        in_channels=[256, 512, 1024, 2048],
+        in_channels=[48, 96, 192, 384],
         out_channels=256,
         num_outs=5),
     rpn_head=dict(
@@ -158,7 +175,7 @@ test_cfg = dict(
         max_num=1000,
         nms_thr=0.7,
         min_bbox_size=0),
-    rcnn=dict(score_thr=0.001, nms=dict(type='soft_nms', iou_thr=0.5, min_score=0.0001), max_per_img=80))
+    rcnn=dict(score_thr=0.001, nms=dict(type='soft_nms', iou_thr=0.5, min_score=0.0001), max_per_img=100))
 # dataset settings
 dataset_type = 'Underwater'
 data_root = '/data2/UnderWater/'
@@ -166,7 +183,7 @@ img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375],
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', img_scale=[(1440, 810), (2400, 1350)], multiscale_mode='range', keep_ratio=True),
+    dict(type='Resize', img_scale=[(4096, 540), (4096, 1080)], multiscale_mode='range', keep_ratio=True),
     dict(type='RandomFlip', flip_ratio=0.5),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32),
@@ -177,7 +194,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=[(1440, 810), (1920, 1080), (2400, 1350)],
+        img_scale=[(4096, 540), (4096, 810), (4096, 1080)],
         flip=True,
         transforms=[
             dict(type='Resize', keep_ratio=True),
@@ -202,7 +219,7 @@ data = dict(
         img_prefix=data_root + 'test-A-image/',
         pipeline=test_pipeline))
 # optimizer
-optimizer = dict(type='SGD', lr=0.0025, momentum=0.9, weight_decay=0.0001)
+optimizer = dict(type='SGD', lr=0.00375, momentum=0.9, weight_decay=0.0001)
 optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(
@@ -210,21 +227,21 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
-    step=[8, 11])
+    step=[8, 11, 24, 27])
 checkpoint_config = dict(interval=2)
 # yapf:disable
 log_config = dict(
     interval=50,
     hooks=[
-        # dict(type='TextLoggerHook'),
-        dict(type='TensorboardLoggerHook')
+        dict(type='TextLoggerHook'),
+        # dict(type='TensorboardLoggerHook')
     ])
 # yapf:enable
 # runtime settings
-total_epochs = 40
+total_epochs = 28
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = './work_dirs/cas_x101_64x4d_fpn_htc_1x'
-load_from = '/data2/UnderWater/pretrained/htc_x101_64x4d_fpn_20e_20190408-497f2561.pth'
+work_dir = './work_dirs/htc_hrnetv2p_w48_28e'
+load_from = '/data2/UnderWater/pretrained/htc_hrnetv2p_w48_28e_20190810-a4274b38.pth'
 resume_from = None
 workflow = [('train', 1)]
