@@ -158,7 +158,7 @@ test_cfg = dict(
         max_num=1000,
         nms_thr=0.7,
         min_bbox_size=0),
-    rcnn=dict(score_thr=0.001, nms=dict(type='soft_nms', iou_thr=0.5, min_score=0.0001), max_per_img=100))
+    rcnn=dict(score_thr=0.0001, nms=dict(type='soft_nms', iou_thr=0.5, min_score=0.0001), max_per_img=500))
 # dataset settings
 dataset_type = 'Underwater'
 data_root = '/data2/UnderWater/'

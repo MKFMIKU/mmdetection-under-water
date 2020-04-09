@@ -175,7 +175,7 @@ test_cfg = dict(
         max_num=1000,
         nms_thr=0.7,
         min_bbox_size=0),
-    rcnn=dict(score_thr=0.001, nms=dict(type='soft_nms', iou_thr=0.5, min_score=0.0001), max_per_img=100))
+    rcnn=dict(score_thr=0.0001, nms=dict(type='soft_nms', iou_thr=0.5, min_score=0.0001), max_per_img=500))
 # dataset settings
 dataset_type = 'Underwater'
 data_root = '/data2/UnderWater/'
@@ -219,7 +219,7 @@ data = dict(
         img_prefix=data_root + 'test-A-image/',
         pipeline=test_pipeline))
 # optimizer
-optimizer = dict(type='SGD', lr=0.00375, momentum=0.9, weight_decay=0.0001)
+optimizer = dict(type='SGD', lr=0.005, momentum=0.9, weight_decay=0.0001)
 optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(
@@ -227,7 +227,7 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
-    step=[8, 11, 24, 27])
+    step=[8, 11])
 checkpoint_config = dict(interval=2)
 # yapf:disable
 log_config = dict(
@@ -238,7 +238,7 @@ log_config = dict(
     ])
 # yapf:enable
 # runtime settings
-total_epochs = 28
+total_epochs = 24
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 work_dir = './work_dirs/htc_hrnetv2p_w48_28e'
